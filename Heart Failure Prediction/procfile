@@ -1,1 +1,1 @@
-web: sh setup.sh && streamli run Heart failure prediction.ipynb
+web: sh setup.sh && streamlit run Heart failure prediction.ipynb

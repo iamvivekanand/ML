@@ -1,21 +1,17 @@
 from nltk.util import pr
 # Pretty print a sequence of data items
-import pandas as pd
-import numpy as np
-# 
-from sklearn.feature_extraction.text import CountVectorizer
-# CountVectorizer Converts a collection of text documents to a matrix of token counts
-from sklearn.model_selection import train_test_split
-# 
 import re
 import nltk
-# 
-stemmer=nltk.SnowballStemmer('english')
-from nltk.corpus import stopwords
+import pandas as pd
+import numpy as np
 import string
+from nltk.corpus import stopwords
+from sklearn.feature_extraction.text import CountVectorizer
+# CountVectorizer Converts a collection of text documents to a matrix of token counts
+from sklearn.model_selection import train_test_split 
+stemmer=nltk.SnowballStemmer('english')
 stopword=set(stopwords.words('english'))
 data = pd.read_csv("twitter.csv")
-# 
 del data['Unnamed: 0']
 # Now we will work over "tweet: and "labels" columns only for our detection model
 data['labels']=data['class'].map({0:"hate speech",1: "Offensive Language", 2: "No Hate and Offensive"})
@@ -51,7 +47,10 @@ model=DecisionTreeClassifier()
 model.fit(X_train,y_train)
 # 
 import streamlit as st
-st.title('Twitter Hate Speech Detection')
+import streamlit as st
+# st.markdown("<body style='background-color:powderblue;'>")
+st.markdown("<h1 style='color: blue;'>Twitter Hate Speech Detection</h1>", unsafe_allow_html=True)
+# st.title('Twitter Hate Speech Detection')
 user_text=st.text_input('Enter something here: ')
 click=st.button('Predict')
 res=''

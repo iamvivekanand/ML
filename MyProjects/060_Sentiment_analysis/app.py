@@ -1,14 +1,15 @@
-import streamlit as st
-import joblib
+import os
 import re
+import joblib
+import streamlit as st
 
-# 1. Page Configuration
+# Set up page title and default layout
 st.set_page_config(
     page_title="Product Review & Feedback Analyzer",
     layout="centered"
 )
 
-# 2. Custom Styling (Background Color, Border & Clean Card Layout)
+# Apply custom styles for card borders and page background
 st.markdown("""
     <style>
     /* Full screen viewport background */
@@ -48,24 +49,35 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# 3. Load Trained Model and Vectorizer
+# Find the exact folder path where this script is running
+current_dir = os.path.dirname(os.path.abspath(__file__))
+
+# Build direct paths to avoid missing file errors on Streamlit Cloud
+model_path = os.path.join(current_dir, 'best_sentiment_model.pkl')
+vectorizer_path = os.path.join(current_dir, 'best_tfidf_vectorizer.pkl')
+
+# Cache the loaded assets so the app runs smoothly without reloading on every click
 @st.cache_resource
 def load_assets():
-    model = joblib.load('best_sentiment_model.pkl')
-    vectorizer = joblib.load('best_tfidf_vectorizer.pkl')
-    return model, vectorizer
+    # Load the trained LinearSVC model
+    loaded_model = joblib.load(model_path)
+    
+    # Load the matching TF-IDF vectorizer
+    loaded_vectorizer = joblib.load(vectorizer_path)
+    
+    return loaded_model, loaded_vectorizer
 
 model, vectorizer = load_assets()
 
-# 4. Text Preprocessing Function
 def clean_text(text):
+    # Lowercase text and normalize whitespace
     text = str(text).lower()
     text = text.replace('_', ' ')
     text = re.sub(r'[^a-z\s]', '', text)
     return ' '.join(text.split())
 
-# 5. Issue Categorization Logic for Negative Feedback
 def tag_issue(text):
+    # Match keywords against common complaint buckets
     text = text.lower()
     if any(k in text for k in ['battery', 'charge', 'power', 'cable', 'screen', 'sound', 'button']):
         return 'Hardware & Battery'
@@ -80,28 +92,28 @@ def tag_issue(text):
     else:
         return 'General Product Defect'
 
-# 6. UI Header without Emojis
+# Render header text
 st.title("Product Review & Feedback Analyzer")
 st.markdown('<p class="sub-text">Live sentiment classification and root-cause issue detection pipeline.</p>', unsafe_allow_html=True)
 
-# User input text area
+# Collect feedback text from the user
 user_review = st.text_area(
     "Customer Review Text:",
     placeholder="Type or paste a product review here... (e.g. 'The battery stopped working after 3 days')",
     height=130
 )
 
-# Analyze action button
+# Run classification on button click
 if st.button("Analyze Review", type="primary"):
     if user_review.strip():
-        # Preprocess and score sentiment
+        # Preprocess and transform input text
         cleaned = clean_text(user_review)
         vec_input = vectorizer.transform([cleaned])
         prediction = model.predict(vec_input)[0]
 
         st.divider()
 
-        # Display result card
+        # Present the outcome according to sentiment
         if prediction == 'Positive':
             st.success("**Sentiment Detected:** Positive")
             st.info("Customer feedback indicates a satisfactory product experience.")

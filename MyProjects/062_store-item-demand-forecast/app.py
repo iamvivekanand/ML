@@ -49,7 +49,6 @@ st.markdown("""
 def load_bundle():
     base_dir = os.path.dirname(os.path.abspath(__file__))
     
-    # Check all possible relative and absolute locations
     possible_paths = [
         os.path.join(base_dir, "artifacts", "store_demand_forecaster.joblib"),
         os.path.join(base_dir, "store_demand_forecaster.joblib"),
@@ -65,10 +64,9 @@ def load_bundle():
 
 bundle = load_bundle()
 
-# Fallback check if file is missing
 if bundle is None:
     st.error("⚠️ Model artifact not found!")
-    st.info("Please make sure `store_demand_forecaster.joblib` exists in the `artifacts/` folder or in the root repository.")
+    st.info("Please make sure `store_demand_forecaster.joblib` exists in the `artifacts/` folder or root directory.")
     st.stop()
 
 # ---------------------------------------------------------
@@ -109,7 +107,6 @@ rolling_std_30 = st.sidebar.number_input("30-Day Std Dev", min_value=0.0, max_va
 st.title("📦 Store Item Demand Forecasting Engine")
 st.markdown("Automated forward-looking unit demand forecasting powered by `HistGradientBoostingRegressor`.")
 
-# Top Evaluation Benchmark KPI Cards
 metrics = bundle.get('metrics', {'test_wape': 9.51, 'test_mae': 2.52, 'naive_test_wape': 19.35})
 col1, col2, col3, col4 = st.columns(4)
 
@@ -167,6 +164,49 @@ for c in bundle.get('cat_cols', ['store_id', 'item_id']):
     if c in input_df.columns:
         input_df[c] = input_df[c].astype('category')
 
-# Model Prediction
-predicted_sales = bundle['model'].predict(input_df)[0]
-predicted_sales = max(
+# Prediction
+raw_pred = bundle['model'].predict(input_df)[0]
+predicted_sales = max(0.0, float(raw_pred))
+
+# ---------------------------------------------------------
+# Visualization & Inventory Recommendations
+# ---------------------------------------------------------
+res_col1, res_col2 = st.columns([1, 1.2])
+
+with res_col1:
+    st.subheader("🎯 Forecast Output")
+    st.metric(label=f"Predicted Unit Sales ({forecast_date.strftime('%Y-%m-%d')})", value=f"{predicted_sales:.1f} Units")
+    
+    safety_stock = int(np.ceil(predicted_sales + (1.65 * rolling_std_7)))
+    recommended_order = max(0, safety_stock - lag_1)
+    
+    st.info(f"""
+    **Supply Chain Guidelines:**
+    - **Buffer / Safety Stock:** `{safety_stock}` units (95% Service Level)
+    - **Suggested Daily Replenishment:** `{recommended_order}` units
+    """)
+
+with res_col2:
+    st.subheader("📈 Demand Momentum Context")
+    fig = go.Figure()
+    
+    fig.add_trace(go.Scatter(
+        x=['30 Days Ago', '14 Days Ago', '7 Days Ago', 'Yesterday', 'Forecast (Target)'],
+        y=[lag_30, lag_14, lag_7, lag_1, predicted_sales],
+        mode='lines+markers+text',
+        name='Sales Velocity',
+        text=[f"{lag_30}", f"{lag_14}", f"{lag_7}", f"{lag_1}", f"{predicted_sales:.1f}"],
+        textposition="top center",
+        line=dict(color='#059669', width=2.5),
+        marker=dict(size=8, color=['#0284c7', '#0284c7', '#0284c7', '#0284c7', '#dc2626'])
+    ))
+    
+    fig.update_layout(
+        title="Unit Demand Run-Rate to Forecast",
+        xaxis_title="Timeline Step",
+        yaxis_title="Unit Sales",
+        template="plotly_white",
+        height=320,
+        margin=dict(l=20, r=20, t=40, b=20)
+    )
+    st.plotly_chart(fig, use_container_width=True)
